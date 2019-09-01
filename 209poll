@@ -1,0 +1,88 @@
+#! /usr/bin/env python3
+
+import sys
+from math import sqrt
+
+EXIT_FAILURE = 84
+EXIT_SUCCESS = 0
+HELP_ARGUMENT = [['-h'], ['--help']]
+
+
+def exit_with_usage(binary_name, exit_value=EXIT_SUCCESS):
+    usage = [
+        'USAGE',
+        f'\t{binary_name} pSize sSize p',
+        '',
+        'DESCRIPTION',
+        '\tpSize\tsize of the population',
+        '\tsSize\tsize of the sample (supposed to be representative)',
+        '\tp\tpercentage of voting intentions for a specific candidate',
+        ''
+    ]
+
+    sys.stderr.write('\n'.join(usage))
+    sys.exit(exit_value)
+
+
+def parse_argument(args):
+    if args[1:] in HELP_ARGUMENT:
+        exit_with_usage(args[0])
+    try:
+        assert len(args) == 4, 'too few or too many arguments'
+        pSize, sSize, p = int(args[1]), int(args[2]), float(args[3])
+        assert pSize > 0, 'pSize must be positif'
+        assert sSize > 0, 'pSize must be positif'
+        assert 0.0 <= p <= 100.0, 'p is a percentage'
+        assert pSize >= sSize, 'pSize must superior than sSize'
+        return pSize, sSize, p
+    except (AssertionError, IndexError, ValueError):
+        exit_with_usage(args[0], exit_value=EXIT_FAILURE)
+
+
+def compute_variance(pSize, sSize, p):
+    p /= 100
+    denominator = (p * (1 - p)) * (pSize - sSize)
+    numerator = sSize * (pSize - 1)
+    return denominator / numerator
+
+def compute_confidence_interval_coefficients(v):
+    partial = lambda x: x * 100.0 / 2.0
+    return partial(2 * 1.96 * sqrt(v)), partial(2 * 2.58 * sqrt(v))
+
+
+def show_population_size(pSize):
+    sys.stdout.write('{:<25}{:.0f}\n'.format('Population size:', pSize))
+
+def show_sample_size(sSize):
+    sys.stdout.write('{:<25}{:.0f}\n'.format('Sample size:', sSize))
+
+def show_voting_intentions(p):
+    sys.stdout.write('{:<25}{:.2f}%\n'.format('Voting intentions:', p))
+
+def show_variance(v):
+    sys.stdout.write('{:<25}{:.6f}\n'.format('Variance:', v))
+
+def show_confidence_interval(ci, border_inf, border_sup):
+    sys.stdout.write('{:<25}[{:.2f}%; {:.2f}%]\n'.format(
+        f'{ci}% confidence interval:',
+        max(0, border_inf),
+        min(100, border_sup)
+    ))
+
+
+def main(args):
+    pSize, sSize, p = parse_argument(args)
+    v = compute_variance(pSize, sSize, p)
+    c95, c99 = compute_confidence_interval_coefficients(v)
+
+    show_population_size(pSize)
+    show_sample_size(sSize)
+    show_voting_intentions(p)
+    show_variance(v)
+    show_confidence_interval(95, p - c95, p + c95)
+    show_confidence_interval(99, p - c99, p + c99)
+
+
+if __name__ == '__main__':
+    main(sys.argv)
+    sys.exit(EXIT_SUCCESS)
